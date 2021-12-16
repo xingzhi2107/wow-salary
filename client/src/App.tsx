@@ -1,13 +1,13 @@
 import React from 'react';
-import {Button} from 'antd';
+import {BrowserRouter} from 'react-router-dom';
+import {renderRoutes} from 'react-router-config';
+import {routes} from './routes';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <Button type="primary">{'Button'}</Button>
-      </header>
+      <BrowserRouter>{renderRoutes(routes)}</BrowserRouter>
     </div>
   );
 }
