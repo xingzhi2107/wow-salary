@@ -9,6 +9,7 @@ import {
   Form,
   InputNumber,
   Button,
+  Tooltip,
 } from 'antd';
 import {fetchWcl} from '../apis';
 import {Report, ReportFight} from '../types/wcl';
@@ -18,6 +19,7 @@ import lodash from 'lodash';
 import moment from 'moment';
 
 const {Search} = Input;
+const {Text, Link, Title} = Typography;
 
 interface Props {}
 
@@ -72,11 +74,11 @@ export class CreateWowEventPage extends PureComponent<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = {
-      wclId: 'LnA7Xdwyb3jmF2JQ',
+      wclId: '',
       report: null,
       loading: false,
       asKillFightIds: [],
-      equipmentIncome: 22400,
+      equipmentIncome: 0,
       salaries: null,
 
       totalKilledTimes: 0,
@@ -98,16 +100,25 @@ export class CreateWowEventPage extends PureComponent<Props, State> {
     const {loading, wclId} = this.state;
 
     return (
-      <div>
-        <Search
-          enterButton="加载"
-          size="large"
-          placeholder="输入WCL ID"
-          loading={loading}
-          value={wclId}
-          onChange={e => this.setState({wclId: e.target.value})}
-          onSearch={this.handleOnLoadWclData}
-        />
+      <div style={{padding: 16, paddingTop: 64}}>
+        <div style={{marginBottom: 20}}>
+          <Form.Item
+            extra={
+              '举例：https://classic.warcraftlogs.com/reports/LnA7Xdwyb3jmF2JQ，最后那串"LnA7Xdwyb3jmF2JQ"就是WCL ID'
+            }
+          >
+            <Search
+              enterButton="加载"
+              size="large"
+              placeholder="输入WCL ID"
+              loading={loading}
+              value={wclId}
+              onChange={e => this.setState({wclId: e.target.value})}
+              onSearch={this.handleOnLoadWclData}
+              style={{marginBottom: 16, maxWidth: 500}}
+            />
+          </Form.Item>
+        </div>
         {this.renderReport()}
         {this.renderSalaries()}
       </div>
@@ -124,13 +135,23 @@ export class CreateWowEventPage extends PureComponent<Props, State> {
         title: 'ID',
         dataIndex: 'id',
         key: 'id',
-        render: id => <Typography.Text>{id}</Typography.Text>,
+        render: id => <Text>{id}</Text>,
       },
       {
         title: '战斗',
         dataIndex: 'name',
         key: 'name',
-        render: name => <Typography.Text>{name}</Typography.Text>,
+        render: (name, record) => {
+          return (
+            <Link
+              href={`https://classic.warcraftlogs.com/reports/${this.state.wclId.trim()}#fight=${
+                record.id
+              }`}
+            >
+              {name}
+            </Link>
+          );
+        },
       },
       {
         title: '击杀',
@@ -139,11 +160,19 @@ export class CreateWowEventPage extends PureComponent<Props, State> {
         render: (kill, record) => {
           const id = record.id;
           const asKilled = this.state.asKillFightIds.includes(id);
-          let label = kill ? '击杀' : '失败';
+          const ms = record.endTime - record.startTime;
+          const ts = Math.floor(ms / 1000);
+          const min = Math.floor(ts / 60);
+          const sec = ts % 60;
+          const duration = `${min}:${sec.toString().padStart(2, '0')}`;
+          const durationText = `（${duration}）`;
           if (asKilled) {
-            label = '视作击杀';
+            return <Text type="warning">{'视作击杀' + durationText}</Text>;
+          } else if (kill) {
+            return <Text type="success">{'击杀' + durationText}</Text>;
+          } else {
+            return <Text type="danger">{'失败' + durationText}</Text>;
           }
-          return <Typography.Text>{label}</Typography.Text>;
         },
       },
       {
@@ -201,103 +230,100 @@ export class CreateWowEventPage extends PureComponent<Props, State> {
           <Typography.Text>{friendlyPlayers.length}</Typography.Text>
         ),
       },
-      // {
-      //   title: '战斗时长',
-      //   dataIndex: 'flightTime',
-      //   key: 'flightTime',
-      //   render: (_, record) => {
-      //     const ms = record.endTime - record.startTime;
-      //     const ts = Math.floor(ms / 1000);
-      //     const min = Math.floor(ts / 60);
-      //     const sec = ts % 60;
-      //     return <Typography.Text>{min + '分钟' + sec + '秒'}</Typography.Text>;
-      //   },
-      // },
-      // {
-      //   title: '开始时间',
-      //   dataIndex: 'startTime',
-      //   key: 'startTime',
-      //   render: ms => {
-      //     ms = ms + (this.state.report?.startTime || 0);
-      //     const ts = ms / 1000;
-      //     const dt = moment.unix(ts);
-      //     return (
-      //       <Typography.Text>
-      //         {dt.format('YYYY-MM-DD HH:MM:SS')}
-      //       </Typography.Text>
-      //     );
-      //   },
-      // },
-      // {
-      //   title: '结束时间',
-      //   dataIndex: 'endTime',
-      //   key: 'endTime',
-      //   render: ms => {
-      //     ms = ms + (this.state.report?.startTime || 0);
-      //     const ts = ms / 1000;
-      //     const dt = moment.unix(ts);
-      //     return (
-      //       <Typography.Text>
-      //         {dt.format('YYYY-MM-DD HH:MM:SS')}
-      //       </Typography.Text>
-      //     );
-      //   },
-      // },
+      {
+        title: '战斗时长',
+        dataIndex: 'flightTime',
+        key: 'flightTime',
+        render: (_, record) => {
+          const ms = record.endTime - record.startTime;
+          const ts = Math.floor(ms / 1000);
+          const min = Math.floor(ts / 60);
+          const sec = ts % 60;
+          return <Typography.Text>{min + '分钟' + sec + '秒'}</Typography.Text>;
+        },
+      },
+      {
+        title: '开始时间',
+        dataIndex: 'startTime',
+        key: 'startTime',
+        render: ms => {
+          ms = ms + (this.state.report?.startTime || 0);
+          const dt = moment(new Date(ms));
+          return (
+            <Tooltip title={dt.format('YYYY-MM-DD HH:mm:ss')}>
+              <Typography.Text>{dt.format('HH:mm:ss')}</Typography.Text>
+            </Tooltip>
+          );
+        },
+      },
     ];
     return (
       <div>
-        <Descriptions title="该要">
-          <Descriptions.Item label="标题">
-            {this.state.report.title}
-          </Descriptions.Item>
-          <Descriptions.Item label="装备收入">
-            {wowCurrency(this.state.equipmentIncome)}
-          </Descriptions.Item>
-          <Descriptions.Item label="击杀总数">
-            {this.state.killedBossCount}
-          </Descriptions.Item>
-          <Descriptions.Item label="击杀总人次">
-            {this.state.totalKilledTimes}
-          </Descriptions.Item>
-          <Descriptions.Item label="单次击杀人次工资">
-            {wowCurrency(this.state.basicSalaryPerKilledTimes)}
-          </Descriptions.Item>
-          <Descriptions.Item label="邮寄总金额">
-            {wowCurrency(this.state.totalSendSalary.toFixed(2))}
-          </Descriptions.Item>
-          <Descriptions.Item label="抹零">
-            {this.state.wipeOff.toFixed(2)}
-          </Descriptions.Item>
-        </Descriptions>
-        <div>
-          <Form
-            name="basic"
-            labelCol={{span: 2}}
-            wrapperCol={{span: 22}}
-            autoComplete="off"
+        <Title>
+          <Link
+            href={
+              'https://classic.warcraftlogs.com/reports/' +
+              this.state.wclId.trim()
+            }
+            target="_blank"
           >
-            <Form.Item
-              label="装备收入(G)"
-              name="equipmentIncome"
-              rules={[{required: true, message: '输入装备总收入'}]}
-            >
-              <InputNumber
-                value={this.state.equipmentIncome}
-                onChange={val => {
-                  this.setState({
-                    equipmentIncome: val,
-                  });
-                }}
-              />
-            </Form.Item>
-          </Form>
-        </div>
+            {this.state.report.title}
+          </Link>
+        </Title>
         <Divider plain>{'战斗数据'}</Divider>
         <Table columns={columns} dataSource={this.flights} />
         <div>
-          <Button onClick={this.handleCalc} type="primary">
-            {'计算'}
-          </Button>
+          <div>
+            <Form
+              name="basic"
+              labelCol={{span: 2}}
+              wrapperCol={{span: 22}}
+              autoComplete="off"
+            >
+              <Form.Item
+                label="装备收入(G)"
+                name="equipmentIncome"
+                rules={[{required: true, message: '输入装备总收入'}]}
+              >
+                <InputNumber
+                  value={this.state.equipmentIncome}
+                  onChange={val => {
+                    this.setState({
+                      equipmentIncome: val,
+                    });
+                  }}
+                />
+              </Form.Item>
+              <Form.Item>
+                <Button onClick={this.handleCalc} type="primary">
+                  {'计算'}
+                </Button>
+              </Form.Item>
+            </Form>
+          </div>
+          <div>
+            <Divider>{'结果'}</Divider>
+            <Descriptions>
+              <Descriptions.Item label="装备收入">
+                {wowCurrency(this.state.equipmentIncome)}
+              </Descriptions.Item>
+              <Descriptions.Item label="击杀总数">
+                {this.state.killedBossCount}
+              </Descriptions.Item>
+              <Descriptions.Item label="击杀总人次">
+                {this.state.totalKilledTimes}
+              </Descriptions.Item>
+              <Descriptions.Item label="单次击杀人次工资">
+                {wowCurrency(this.state.basicSalaryPerKilledTimes)}
+              </Descriptions.Item>
+              <Descriptions.Item label="邮寄总金额">
+                {wowCurrency(this.state.totalSendSalary.toFixed(2))}
+              </Descriptions.Item>
+              <Descriptions.Item label="抹零">
+                {this.state.wipeOff.toFixed(2)}
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
         </div>
       </div>
     );
@@ -334,7 +360,7 @@ export class CreateWowEventPage extends PureComponent<Props, State> {
 
     return (
       <div>
-        <Divider plain>{'战斗数据'}</Divider>
+        <Divider plain>{'工资详情'}</Divider>
         <Table
           columns={columns}
           dataSource={salaries}
@@ -346,7 +372,9 @@ export class CreateWowEventPage extends PureComponent<Props, State> {
           </Button>
         </div>
 
-        <div style={{whiteSpace: 'pre'}}>{this.state.jsonResult}</div>
+        <div style={{whiteSpace: 'pre', maxHeight: 400, overflow: 'scroll'}}>
+          {this.state.encodedResult}
+        </div>
       </div>
     );
   }
@@ -360,12 +388,26 @@ export class CreateWowEventPage extends PureComponent<Props, State> {
         report: res.data.reportData.report,
         loading: false,
         asKillFightIds: [],
+
+        equipmentIncome: 0,
+        salaries: null,
+
+        totalKilledTimes: 0,
+        killedBossCount: 0,
+        basicSalaryPerKilledTimes: 0,
+        totalSendSalary: 0,
+        wipeOff: 0,
+        encodedResult: '',
+        jsonResult: '',
       });
     });
   };
 
   handleOnLoadWclData = (wcl: string) => {
     wcl = wcl.trim();
+    if (!wcl) {
+      return;
+    }
     this.loadData(wcl);
   };
 
