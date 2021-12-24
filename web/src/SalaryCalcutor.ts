@@ -5,6 +5,7 @@ export interface SalaryDetailItem {
   playerId: number;
   item: string;
   value: number;
+  playerKilledCount: number;
 }
 
 export interface SalaryItem {
@@ -57,21 +58,24 @@ export class SalaryCalculator {
     const playerId2KilledCount = this.playerId2KilledCount;
     const killedBossCount = this.killedBossCount;
     const basicSalaryPerKilledTimes = this.basicSalaryPerKilledTimes;
-    return this.allPlayers.map(player => {
-      const id = player.id;
-      const playerKilledCount = playerId2KilledCount[id];
-      const salaryValue = salaryRound(
-        playerKilledCount * basicSalaryPerKilledTimes,
-      );
+    return this.allPlayers
+      .map(player => {
+        const id = player.id;
+        const playerKilledCount = playerId2KilledCount[id] ?? 0;
+        const salaryValue = salaryRound(
+          playerKilledCount * basicSalaryPerKilledTimes,
+        );
 
-      const note = `基本工资(${playerKilledCount}/${killedBossCount})`;
+        const note = `基本工资(${playerKilledCount}/${killedBossCount})`;
 
-      return {
-        playerId: id,
-        item: note,
-        value: salaryValue,
-      };
-    });
+        return {
+          playerId: id,
+          item: note,
+          value: salaryValue,
+          playerKilledCount,
+        };
+      })
+      .filter(x => x.playerKilledCount > 0);
   }
 
   private get id2BasicSalary() {
@@ -87,7 +91,9 @@ export class SalaryCalculator {
   }
 
   private get allPlayers() {
-    return this.actors.filter(x => x.type === 'Player');
+    return this.actors.filter(
+      x => x.type === 'Player' && x.subType !== 'Unknown',
+    );
   }
 
   private get id2Player() {
@@ -105,27 +111,28 @@ export class SalaryCalculator {
 
     // 罚款：TODO
 
-    return this.allPlayers.map(player => {
-      const id = player.id;
-      const uuid = `${wclId}--${player.gameID}`;
-      const detailItems = [id2BasicSalary[id]].filter(x => x);
-      const total = lodash.sumBy(detailItems, x => x.value);
+    return this.allPlayers
+      .map(player => {
+        const id = player.id;
+        const uuid = `${wclId}--${player.gameID}`;
+        const detailItems = [id2BasicSalary[id]].filter(x => x);
+        if (!detailItems.length) {
+          return null;
+        }
+        const total = lodash.sumBy(detailItems, x => x.value);
 
-      if (!player.server) {
-        debugger;
-      }
-
-      return {
-        uuid,
-        eventId,
-        name: player.name,
-        server: player.server,
-        optLogs: [],
-        timeRemoved: 0,
-        timeSent: 0,
-        detailItems,
-        total,
-      };
-    });
+        return {
+          uuid,
+          eventId,
+          name: player.name,
+          server: player.server,
+          optLogs: [],
+          timeRemoved: 0,
+          timeSent: 0,
+          detailItems,
+          total,
+        };
+      })
+      .filter(x => !lodash.isNil(x)) as SalaryItem[];
   }
 }
